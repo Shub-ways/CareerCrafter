@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Aarav Sharma",
+    "education": "B.Tech CSE (AI & ML)",
+    "skills": ["Python", "Machine Learning", "Data Analysis"],
+    "goal": "AI Researcher"
+  },
+  {
+    "name": "Ishita Verma",
+    "education": "B.Sc Data Science",
+    "skills": ["R", "Statistics", "Deep Learning"],
+    "goal": "Data Scientist"
+  },
+  {
+    "name": "Rahul Mehta",
+    "education": "B.Tech IT",
+    "skills": ["Web Development", "React", "Node.js"],
+    "goal": "Full Stack Developer"
+  },
+  {
+    "name": "Priya Gupta",
+    "education": "MBA",
+    "skills": ["Management", "Communication", "Leadership"],
+    "goal": "Product Manager"
+  }
+]

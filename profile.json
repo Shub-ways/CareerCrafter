@@ -1,0 +1,30 @@
+{
+    "Shobha": {
+        "Name": "Shobha",
+        "Age": 19,
+        "Education": "Undergraduate",
+        "Career Interests": [
+            "Web Development"
+        ],
+        "Skills": [
+            "HTML",
+            "CSS",
+            "JavaScript",
+            "MERN"
+        ]
+    },
+    "shubham": {
+        "Name": "shubham kumar",
+        "Age": 20,
+        "Education": "Undergraduate",
+        "Career Interests": [
+            "Web Development"
+        ],
+        "Skills": [
+            "Python",
+            "SQL",
+            "PowerBI",
+            "Excel"
+        ]
+    }
+}
