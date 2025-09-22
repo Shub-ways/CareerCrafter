@@ -629,13 +629,14 @@ else:
         return path
 
     @st.cache_data
-    def get_profile_image_base64(username):
+    def get_profile_image_base64(image_path, username):  # Add image_path as parameter
         try:
-            path = get_profile_image_path()
-            with Image.open(path) as img:
-                img = img.resize((120, 120))  # Resize for performance
+            if not os.path.exists(image_path):
+                image_path = DEFAULT_PROFILE_PIC
+            with Image.open(image_path) as img:
+                img = img.resize((120, 120))
                 buffered = BytesIO()
-                img.save(buffered, format="PNG", quality=85)  # Compress
+                img.save(buffered, format="PNG", quality=85)
                 return base64.b64encode(buffered.getvalue()).decode()
         except Exception:
             return ""
@@ -654,7 +655,7 @@ else:
         st.markdown("<div class='profile-section'>", unsafe_allow_html=True)
         
         # Display profile picture (centered and round)
-        profile_img_b64 = get_profile_image_base64(st.session_state.username)
+        profile_img_b64 = get_profile_image_base64(get_profile_image_path(), st.session_state.username)
         if profile_img_b64:
             st.markdown(f"""
                 <div class='profile-pic-container'>
@@ -757,7 +758,10 @@ else:
                         st.session_state.uploaded_files = []
                     st.session_state.uploaded_files.append(uploaded_file.name)
                     
-                    st.success("✅ Profile picture updated successfully!")
+                    # Clear cache and force refresh
+                    st.cache_data.clear()  # Clear all cached data
+                    st.success("Profile picture updated successfully!")
+                    st.rerun()  # Force a rerun to refresh the sidebar
                 except Exception as e:
                     st.error(f"Error uploading file: {e}")
 
