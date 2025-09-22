@@ -1,5 +1,5 @@
 # Career Advisor - AI-Powered Platform
-
+LINK - (https://careercrafter-deps5jbzjd9avnkskgepgu.streamlit.app/)
 **Career Advisor** is a web application that helps students and professionals explore personalized career paths, match with peers having similar interests, and get AI-based career guidance.
 
 ## Features
