@@ -1,12 +1,31 @@
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
+# CHANGE 6: Removed streamlit import from top level
 
-# Load environment variables
+# Load environment variables for local development
 load_dotenv()
 
-# Configure Gemini API
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# CHANGE 10: Updated API key function to handle both local and deployed environments
+def get_api_key():
+    """Get API key from either Streamlit secrets (deployed) or environment variable (local)"""
+    try:
+        # Try Streamlit secrets first (for deployed app) - import only when needed
+        import streamlit as st
+        if hasattr(st, 'secrets') and 'GEMINI_API_KEY' in st.secrets:
+            return st.secrets['GEMINI_API_KEY']
+    except Exception:
+        pass
+    
+    # Fall back to environment variable (for local development)
+    return os.getenv('GEMINI_API_KEY')
+
+# CHANGE 8: Updated Google AI configuration to use the new function
+api_key = get_api_key()
+if not api_key:
+    raise ValueError("GEMINI_API_KEY not found in environment variables or Streamlit secrets")
+
+genai.configure(api_key=api_key)
 
 # Function to call Gemini with user profile data
 def get_gemini_response(prompt: str, roles_data: dict) -> str:
