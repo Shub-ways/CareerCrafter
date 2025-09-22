@@ -11,20 +11,6 @@ import shutil
 import base64
 from PIL import Image
 
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-
-# Explicitly point to .env in the project root
-dotenv_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=dotenv_path)
-
-# Test if GEMINI_API_KEY is loaded
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key is None:
-    raise ValueError("GEMINI_API_KEY not loaded! Check your .env file.")
-print("API Key loaded successfully:", api_key)
-
 
 # ---- Page Config ----
 st.set_page_config(page_title="AI Career & Skills Advisor", layout="wide")
