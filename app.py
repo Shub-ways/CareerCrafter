@@ -1,8 +1,4 @@
-# ---- Page Config (CHANGE 9: Must be first Streamlit command) ----
 import streamlit as st
-st.set_page_config(page_title="AI Career & Skills Advisor", layout="wide")
-
-# Now import everything else
 import json
 from utils.gemini_helper import get_gemini_response
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -14,10 +10,12 @@ import tempfile
 import shutil
 import base64
 from PIL import Image
-# CHANGE 1: Added dotenv import for local development
+# Added dotenv import for local development
 from dotenv import load_dotenv
 
-# CHANGE 2: Load environment variables for local development
+st.set_page_config(page_title="AI Career & Skills Advisor", layout="wide")
+
+# Load environment variables for local development
 load_dotenv()
 
 # st.title("🎯 AI Career & Skills Advisor")
@@ -31,7 +29,7 @@ USERS_FILE = "users.json"  # Store login credentials (hashed)
 PROFILE_PICS_FILE = "profile_pics.json"
 DEFAULT_PROFILE_PIC = "default_photo.png"  # Make sure this file exists
 
-# CHANGE 3: Added function to get API key from either environment or Streamlit secrets
+# Added function to get API key from either environment or Streamlit secrets
 def get_api_key():
     """Get API key from either Streamlit secrets (deployed) or environment variable (local)"""
     try:
@@ -44,7 +42,7 @@ def get_api_key():
     # Fall back to environment variable (for local development)
     return os.getenv('GEMINI_API_KEY')
 
-# CHANGE 4: Test API key availability at startup
+# Test API key availability at startup
 def check_api_key():
     """Check if API key is available and show appropriate message"""
     api_key = get_api_key()
@@ -327,7 +325,7 @@ def login_card():
         </style>
         """, unsafe_allow_html=True)
 
-# CHANGE 5: Check API key before running the app
+# Check API key before running the app
 check_api_key()
 
 # ---- Login / Sign Up ----
