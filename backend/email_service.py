@@ -37,7 +37,7 @@ def send_email(
             if cc_email:
                 payload["cc"] = cc_email
                 
-            response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers, timeout=5.0)
             if response.status_code in (200, 201):
                 print("[Email Service] Email sent successfully via Resend API.")
                 return True
@@ -75,7 +75,8 @@ def send_email(
         msg['Cc'] = cc_email
         
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=5.0) as server:
+
             server.starttls()
             server.login(smtp_user.strip(), smtp_pass.strip())
             server.send_message(msg)
