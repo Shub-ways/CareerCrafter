@@ -14,6 +14,11 @@ from security import get_password_hash, verify_password, create_access_token, AC
 from datetime import timedelta
 
 def send_otp_email(to_email: str, otp: str):
+    # Log the OTP to the console so that it can be retrieved from logs if email ports are blocked
+    print(f"\n==========================================")
+    print(f"[OTP Verification] To: {to_email} | OTP: {otp}")
+    print(f"==========================================\n")
+
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER")
@@ -29,7 +34,7 @@ def send_otp_email(to_email: str, otp: str):
     msg['Subject'] = 'Verify your CareerCrafter account'
     msg['From'] = smtp_from or "noreply@careercrafter.local"
     msg['To'] = to_email
-
+ 
     try:
         with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.starttls()
@@ -39,6 +44,7 @@ def send_otp_email(to_email: str, otp: str):
     except Exception as e:
         print(f"Error sending email: {e}")
         return False
+
 
 @router.post("/request-otp")
 def request_otp(request: schemas.OTPRequest, db: Session = Depends(database.get_db)):
