@@ -13,37 +13,24 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 from security import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from datetime import timedelta
 
+from email_service import send_email
+
 def send_otp_email(to_email: str, otp: str):
     # Log the OTP to the console so that it can be retrieved from logs if email ports are blocked
     print(f"\n==========================================")
     print(f"[OTP Verification] To: {to_email} | OTP: {otp}")
     print(f"==========================================\n")
 
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
-    smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user)
+    body_text = f"Your CareerCrafter OTP is: {otp}\nIt is valid for 10 minutes."
+    body_html = f"<p>Your CareerCrafter OTP is: <strong>{otp}</strong></p><p>It is valid for 10 minutes.</p>"
     
-    if not smtp_user or not smtp_pass:
-        print(f"SMTP Credentials missing. Mock sending OTP {otp} to {to_email}")
-        return True
-        
-    msg = EmailMessage()
-    msg.set_content(f"Your CareerCrafter OTP is: {otp}\nIt is valid for 10 minutes.")
-    msg['Subject'] = 'Verify your CareerCrafter account'
-    msg['From'] = smtp_from or "noreply@careercrafter.local"
-    msg['To'] = to_email
- 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user.strip(), smtp_pass.strip())
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
+    return send_email(
+        to_email=to_email,
+        subject="Verify your CareerCrafter account",
+        body_text=body_text,
+        body_html=body_html
+    )
+
 
 
 @router.post("/request-otp")

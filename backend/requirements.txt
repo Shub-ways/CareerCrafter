@@ -10,4 +10,6 @@ bcrypt
 python-jose
 psycopg2-binary
 PyPDF2
+requests
+
 
