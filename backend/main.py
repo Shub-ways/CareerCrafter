@@ -10,9 +10,14 @@ import models, database
 app = FastAPI(title="CareerCrafter API")
 
 # Setup CORS
+allowed_origins = ["http://localhost:5173", "http://localhost:3000"]
+env_origins = os.getenv("CORS_ORIGINS")
+if env_origins:
+    allowed_origins.extend([origin.strip() for origin in env_origins.split(",") if origin.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
