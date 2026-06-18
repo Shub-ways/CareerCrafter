@@ -1,0 +1,6 @@
+{
+  "Data Scientist": ["Python", "SQL", "Machine Learning", "Deep Learning", "Statistics", "NLP"],
+  "AI Engineer": ["Python", "TensorFlow", "PyTorch", "Machine Learning", "Deep Learning", "MLOps"],
+  "Cloud Engineer": ["Cloud (AWS/GCP/Azure)", "Linux", "Networking", "Terraform", "CI/CD"],
+  "Web Developer": ["HTML", "CSS", "JavaScript", "React", "Node.js", "Databases"]
+}
