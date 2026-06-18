@@ -67,7 +67,7 @@ def request_otp(request: schemas.OTPRequest, db: Session = Depends(database.get_
     
     return {"message": "OTP sent to email"}
 
-@router.post("/verify-otp", response_model=schemas.UserResponse)
+@router.post("/verify-otp")
 def verify_otp(request: schemas.OTPVerify, db: Session = Depends(database.get_db)):
     db_user = db.query(models.User).filter(models.User.username == request.username).first()
     
