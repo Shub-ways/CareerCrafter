@@ -14,15 +14,16 @@ from security import get_password_hash, verify_password, create_access_token, AC
 from datetime import timedelta
 
 from email_service import send_email
+from email_templates import get_otp_email_html, get_welcome_email_html
 
-def send_otp_email(to_email: str, otp: str):
+def send_otp_email(to_email: str, otp: str, username: str = "User"):
     # Log the OTP to the console so that it can be retrieved from logs if email ports are blocked
     print(f"\n==========================================")
     print(f"[OTP Verification] To: {to_email} | OTP: {otp}")
     print(f"==========================================\n")
 
     body_text = f"Your CareerCrafter OTP is: {otp}\nIt is valid for 10 minutes."
-    body_html = f"<p>Your CareerCrafter OTP is: <strong>{otp}</strong></p><p>It is valid for 10 minutes.</p>"
+    body_html = get_otp_email_html(otp, username)
     
     return send_email(
         to_email=to_email,
@@ -30,8 +31,6 @@ def send_otp_email(to_email: str, otp: str):
         body_text=body_text,
         body_html=body_html
     )
-
-
 
 @router.post("/request-otp")
 def request_otp(request: schemas.OTPRequest, db: Session = Depends(database.get_db)):
@@ -63,7 +62,7 @@ def request_otp(request: schemas.OTPRequest, db: Session = Depends(database.get_
         
     db.commit()
     
-    send_otp_email(request.email, otp)
+    send_otp_email(request.email, otp, request.username)
     
     return {"message": "OTP sent to email"}
 
@@ -98,6 +97,19 @@ def verify_otp(request: schemas.OTPVerify, db: Session = Depends(database.get_db
     )
     db.add(new_profile)
     db.commit()
+    
+    # Send Welcome Email upon successful registration & verification
+    try:
+        welcome_html = get_welcome_email_html(db_user.username)
+        welcome_text = f"Welcome to CareerCrafter, {db_user.username}!\nExplore your dashboard and generate AI career roadmaps."
+        send_email(
+            to_email=db_user.email,
+            subject=f"Welcome to CareerCrafter, {db_user.username}! 🎉",
+            body_text=welcome_text,
+            body_html=welcome_html
+        )
+    except Exception as e:
+        print("Error sending welcome email:", e)
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

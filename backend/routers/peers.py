@@ -67,23 +67,25 @@ def connect_peers(request: ConnectRequest, db: Session = Depends(database.get_db
     if not sender_user or not target_user:
         return {"success": False, "error": "User not found"}
         
-    socials_text = ""
-    if sender_profile.linkedin_url or sender_profile.github_url:
-        socials_text = "\n\nYou can also check out their profiles:\n"
-        if sender_profile.linkedin_url:
-            socials_text += f"- LinkedIn: {sender_profile.linkedin_url}\n"
-        if sender_profile.github_url:
-            socials_text += f"- GitHub: {sender_profile.github_url}\n"
-            
-    msg_body = f"Hi {target_profile.full_name},\n\n{sender_profile.full_name} (@{sender_profile.username}) wants to connect with you on CareerCrafter!\n\nYou can reach out to them directly by replying to this email.{socials_text}\n\nBest,\nThe CareerCrafter Team"
+    from email_service import send_email
+    from email_templates import get_peer_connect_email_html
+
+    body_html = get_peer_connect_email_html(
+        sender_name=sender_profile.full_name or sender_profile.username,
+        sender_username=sender_profile.username,
+        target_name=target_profile.full_name or target_profile.username,
+        linkedin_url=sender_profile.linkedin_url,
+        github_url=sender_profile.github_url
+    )
     
+    msg_body = f"Hi {target_profile.full_name},\n\n{sender_profile.full_name} (@{sender_profile.username}) wants to connect with you on CareerCrafter!\n\nYou can reach out to them directly by replying to this email."
     subject = f"New Connection Request from {sender_profile.full_name}"
     
-    from email_service import send_email
     success = send_email(
         to_email=target_user.email,
         subject=subject,
         body_text=msg_body,
+        body_html=body_html,
         reply_to=sender_user.email,
         cc_email=sender_user.email
     )
