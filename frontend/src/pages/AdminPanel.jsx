@@ -4,15 +4,25 @@ import { Users, CheckCircle2, Shield, Search, Download, Award, Clock, BookOpen, 
 import './AdminPanel.css';
 
 const AdminPanel = () => {
-  const { api } = useAuth();
+  const { user, api } = useAuth();
   const [users, setUsers] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const ADMIN_USERS = ['shubham kumar', 'admin', 'shubhamkumar44838@gmail.com'];
+  const isAdmin = user?.username && (
+    ADMIN_USERS.includes(user.username.toLowerCase()) || 
+    ADMIN_USERS.includes(user.email?.toLowerCase())
+  );
+
   useEffect(() => {
-    fetchAdminData();
-  }, []);
+    if (isAdmin) {
+      fetchAdminData();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const fetchAdminData = async () => {
     try {
@@ -71,6 +81,18 @@ const AdminPanel = () => {
   };
 
   if (loading) return <div className="admin-container"><div className="loading-state">Loading Admin Dashboard...</div></div>;
+
+  if (!isAdmin) {
+    return (
+      <div className="admin-container animate-fade-in">
+        <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', maxWidth: '500px', margin: '3rem auto' }}>
+          <Shield size={56} style={{ color: '#ef4444', marginBottom: '1rem' }} />
+          <h2 style={{ marginBottom: '0.5rem' }}>Access Restricted</h2>
+          <p style={{ color: 'var(--text-secondary)' }}>This page is reserved strictly for site administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-container animate-fade-in">

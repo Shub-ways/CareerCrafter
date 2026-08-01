@@ -41,6 +41,9 @@ const Layout = () => {
     navigate('/auth');
   };
 
+  const ADMIN_USERS = ['shubham kumar', 'admin', 'shubhamkumar44838@gmail.com'];
+  const isAdmin = user?.username && ADMIN_USERS.includes(user.username.toLowerCase());
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/advisor', label: 'AI Career Advisor', icon: <Compass size={20} /> },
@@ -48,9 +51,12 @@ const Layout = () => {
     { path: '/interview', label: 'Mock Interview', icon: <Mic size={20} /> },
     { path: '/peers', label: 'Peer Matching', icon: <Users size={20} /> },
     { path: '/jobs', label: 'Job Matches', icon: <Briefcase size={20} /> },
-    { path: '/history', label: 'History', icon: <Clock size={20} /> },
-    { path: '/admin', label: 'Admin Panel', icon: <Shield size={20} /> }
+    { path: '/history', label: 'History', icon: <Clock size={20} /> }
   ];
+
+  if (isAdmin) {
+    navItems.push({ path: '/admin', label: 'Admin Panel', icon: <Shield size={20} /> });
+  }
 
   return (
     <div className="layout-container">
