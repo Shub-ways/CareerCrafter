@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Compass, Users, Clock, LogOut, User as UserIcon, FileText, Mic, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Compass, Users, Clock, LogOut, User as UserIcon, FileText, Mic, Briefcase, Shield } from 'lucide-react';
 import './Layout.css';
 
 const Layout = () => {
@@ -48,7 +48,8 @@ const Layout = () => {
     { path: '/interview', label: 'Mock Interview', icon: <Mic size={20} /> },
     { path: '/peers', label: 'Peer Matching', icon: <Users size={20} /> },
     { path: '/jobs', label: 'Job Matches', icon: <Briefcase size={20} /> },
-    { path: '/history', label: 'History', icon: <Clock size={20} /> }
+    { path: '/history', label: 'History', icon: <Clock size={20} /> },
+    { path: '/admin', label: 'Admin Panel', icon: <Shield size={20} /> }
   ];
 
   return (

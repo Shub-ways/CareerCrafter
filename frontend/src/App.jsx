@@ -10,6 +10,7 @@ import History from './pages/History';
 import ResumeReviewer from './pages/ResumeReviewer';
 import MockInterview from './pages/MockInterview';
 import JobBoard from './pages/JobBoard';
+import AdminPanel from './pages/AdminPanel';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -36,6 +37,7 @@ function AppRoutes() {
         <Route path="resume" element={<ResumeReviewer />} />
         <Route path="interview" element={<MockInterview />} />
         <Route path="jobs" element={<JobBoard />} />
+        <Route path="admin" element={<AdminPanel />} />
       </Route>
       
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

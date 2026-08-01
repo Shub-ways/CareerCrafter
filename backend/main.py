@@ -76,3 +76,39 @@ def get_admin_stats(db: Session = Depends(database.get_db)):
         },
         "users": user_list
     }
+
+import json
+
+@app.get("/admin/users/detailed")
+def get_detailed_users(db: Session = Depends(database.get_db)):
+    users = db.query(models.User).all()
+    detailed_list = []
+    for u in users:
+        p = db.query(models.Profile).filter(models.Profile.username == u.username).first()
+        history_count = db.query(models.History).filter(models.History.username == u.username).count()
+        tasks_count = db.query(models.Task).filter(models.Task.username == u.username).count()
+        
+        badges_count = 0
+        if p and p.badges:
+            try:
+                b_list = json.loads(p.badges)
+                badges_count = len(b_list)
+            except Exception:
+                badges_count = 0
+                
+        detailed_list.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "is_verified": u.is_verified,
+            "full_name": p.full_name if p and p.full_name else u.username,
+            "education": p.education if p and p.education else "N/A",
+            "skills": [s.strip() for s in p.skills.split(",") if s.strip()] if p and p.skills else [],
+            "interests": [i.strip() for i in p.interests.split(",") if i.strip()] if p and p.interests else [],
+            "points": p.points if p and p.points else 0,
+            "badges_count": badges_count,
+            "history_count": history_count,
+            "tasks_count": tasks_count,
+            "profile_pic": p.profile_pic if p else None
+        })
+    return detailed_list
