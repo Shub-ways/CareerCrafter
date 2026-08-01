@@ -154,3 +154,28 @@ def award_points_user_admin(user_id: int, request: AwardPointsRequest, db: Sessi
         db.commit()
         return {"success": True, "points": target_profile.points}
     return {"success": False, "error": "Profile not found"}
+
+from sqlalchemy import inspect
+
+@app.get("/admin/schema")
+def get_db_schema_admin():
+    inspector = inspect(database.engine)
+    schema_info = {}
+    
+    for table_name in inspector.get_table_names():
+        columns = []
+        for col in inspector.get_columns(table_name):
+            columns.append({
+                "name": col["name"],
+                "type": str(col["type"]),
+                "nullable": col["nullable"]
+            })
+        schema_info[table_name] = {
+            "columns_count": len(columns),
+            "columns": columns
+        }
+        
+    return {
+        "database_type": database.engine.name,
+        "tables": schema_info
+    }
