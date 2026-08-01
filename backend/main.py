@@ -46,3 +46,33 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+@app.get("/admin/stats")
+def get_admin_stats(db: Session = Depends(database.get_db)):
+    total_users = db.query(models.User).count()
+    verified_users = db.query(models.User).filter(models.User.is_verified == True).count()
+    total_profiles = db.query(models.Profile).count()
+    total_history = db.query(models.History).count()
+    total_tasks = db.query(models.Task).count()
+    
+    users = db.query(models.User).all()
+    user_list = [
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "is_verified": u.is_verified
+        }
+        for u in users
+    ]
+    
+    return {
+        "summary": {
+            "total_users": total_users,
+            "verified_users": verified_users,
+            "total_profiles": total_profiles,
+            "total_history_items": total_history,
+            "total_tasks": total_tasks
+        },
+        "users": user_list
+    }
