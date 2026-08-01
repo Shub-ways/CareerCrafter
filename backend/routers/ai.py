@@ -9,6 +9,7 @@ import PyPDF2
 import io
 import traceback
 from typing import List
+from datetime import datetime
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
