@@ -16,16 +16,19 @@ def get_peers(username: str, db: Session = Depends(database.get_db), current_use
         
     all_profiles = db.query(models.Profile).filter(models.Profile.username != username).all()
     
-    current_interests = set([i.strip() for i in current_user_profile.interests.split(",") if i.strip()])
-    current_skills = set([s.strip() for s in current_user_profile.skills.split(",") if s.strip()])
+    current_interests_dict = {i.strip().lower(): i.strip() for i in (current_user_profile.interests or "").split(",") if i.strip()}
+    current_skills_dict = {s.strip().lower(): s.strip() for s in (current_user_profile.skills or "").split(",") if s.strip()}
     
     matches = []
     for profile in all_profiles:
-        profile_interests = set([i.strip() for i in profile.interests.split(",") if i.strip()])
-        profile_skills = set([s.strip() for s in profile.skills.split(",") if s.strip()])
+        profile_interests_dict = {i.strip().lower(): i.strip() for i in (profile.interests or "").split(",") if i.strip()}
+        profile_skills_dict = {s.strip().lower(): s.strip() for s in (profile.skills or "").split(",") if s.strip()}
         
-        interests_overlap = current_interests & profile_interests
-        skills_overlap = current_skills & profile_skills
+        shared_interest_keys = set(current_interests_dict.keys()) & set(profile_interests_dict.keys())
+        shared_skill_keys = set(current_skills_dict.keys()) & set(profile_skills_dict.keys())
+        
+        interests_overlap = [current_interests_dict[k] for k in shared_interest_keys]
+        skills_overlap = [current_skills_dict[k] for k in shared_skill_keys]
         
         score = len(interests_overlap) * 2 + len(skills_overlap)
         
@@ -36,8 +39,8 @@ def get_peers(username: str, db: Session = Depends(database.get_db), current_use
                 "profile_pic": profile.profile_pic,
                 "linkedin_url": profile.linkedin_url,
                 "github_url": profile.github_url,
-                "interests_overlap": list(interests_overlap),
-                "skills_overlap": list(skills_overlap),
+                "interests_overlap": interests_overlap,
+                "skills_overlap": skills_overlap,
                 "score": score
             })
             
