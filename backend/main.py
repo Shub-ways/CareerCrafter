@@ -112,3 +112,45 @@ def get_detailed_users(db: Session = Depends(database.get_db)):
             "profile_pic": p.profile_pic if p else None
         })
     return detailed_list
+
+from pydantic import BaseModel
+
+class AwardPointsRequest(BaseModel):
+    points: int
+
+@app.delete("/admin/users/{user_id}")
+def delete_user_admin(user_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    target_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    username = target_user.username
+    db.query(models.Profile).filter(models.Profile.username == username).delete()
+    db.query(models.History).filter(models.History.username == username).delete()
+    db.query(models.Task).filter(models.Task.username == username).delete()
+    db.delete(target_user)
+    db.commit()
+    return {"success": True, "message": f"User {username} deleted successfully"}
+
+@app.post("/admin/users/{user_id}/toggle-verify")
+def toggle_verify_user_admin(user_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    target_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    target_user.is_verified = not target_user.is_verified
+    db.commit()
+    return {"success": True, "is_verified": target_user.is_verified}
+
+@app.post("/admin/users/{user_id}/award-points")
+def award_points_user_admin(user_id: int, request: AwardPointsRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    target_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    target_profile = db.query(models.Profile).filter(models.Profile.username == target_user.username).first()
+    if target_profile:
+        target_profile.points = (target_profile.points or 0) + request.points
+        db.commit()
+        return {"success": True, "points": target_profile.points}
+    return {"success": False, "error": "Profile not found"}

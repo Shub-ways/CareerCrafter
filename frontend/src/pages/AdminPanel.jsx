@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Users, CheckCircle2, Shield, Search, Download, Award, Clock, BookOpen, Star } from 'lucide-react';
+import { Users, CheckCircle2, Shield, Search, Download, Award, Clock, BookOpen, Star, Trash2, RefreshCw, PlusCircle } from 'lucide-react';
 import './AdminPanel.css';
 
 const AdminPanel = () => {
@@ -36,6 +36,36 @@ const AdminPanel = () => {
       console.error("Error fetching admin data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId, targetUsername) => {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete user "@${targetUsername}" and all their profiles/history?`)) return;
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      fetchAdminData();
+    } catch (err) {
+      alert("Error deleting user: " + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleToggleVerify = async (userId) => {
+    try {
+      await api.post(`/admin/users/${userId}/toggle-verify`);
+      fetchAdminData();
+    } catch (err) {
+      alert("Error toggling verification status");
+    }
+  };
+
+  const handleAwardBonusPoints = async (userId, username) => {
+    const pts = window.prompt(`Enter bonus points to award to @${username}:`, "50");
+    if (!pts || isNaN(pts)) return;
+    try {
+      await api.post(`/admin/users/${userId}/award-points`, { points: parseInt(pts) });
+      fetchAdminData();
+    } catch (err) {
+      alert("Error awarding points");
     }
   };
 
@@ -98,8 +128,8 @@ const AdminPanel = () => {
     <div className="admin-container animate-fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1><span className="text-gradient">Admin Dashboard</span> <Shield size={28} className="text-indigo-500 inline-icon" /></h1>
-          <p>Full database overview and registered user management.</p>
+          <h1><span className="text-gradient">Admin Control Panel</span> <Shield size={28} className="text-indigo-500 inline-icon" /></h1>
+          <p>Full database management, account verification, and user operations.</p>
         </div>
         <button onClick={exportCSV} className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem' }}>
           <Download size={16} /> Export User CSV
@@ -180,6 +210,7 @@ const AdminPanel = () => {
                 <th>Skills</th>
                 <th>Points & Badges</th>
                 <th>Activity</th>
+                <th style={{ textAlign: 'right' }}>Admin Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -210,7 +241,7 @@ const AdminPanel = () => {
                   </td>
                   <td>{u.education}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '200px' }}>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '180px' }}>
                       {u.skills.slice(0, 3).map((sk, idx) => (
                         <span key={idx} className="tag" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>{sk}</span>
                       ))}
@@ -229,6 +260,33 @@ const AdminPanel = () => {
                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                       <div>{u.history_count} sessions</div>
                       <div>{u.tasks_count} tasks</div>
+                    </div>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '6px' }}>
+                      <button 
+                        onClick={() => handleAwardBonusPoints(u.id, u.username)}
+                        style={{ padding: '6px 10px', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', color: '#facc15', borderRadius: '6px', cursor: 'pointer' }}
+                        title="Award Bonus Points"
+                      >
+                        <PlusCircle size={14} />
+                      </button>
+
+                      <button 
+                        onClick={() => handleToggleVerify(u.id)}
+                        style={{ padding: '6px 10px', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#4ade80', borderRadius: '6px', cursor: 'pointer' }}
+                        title="Toggle Verification Status"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+
+                      <button 
+                        onClick={() => handleDeleteUser(u.id, u.username)}
+                        style={{ padding: '6px 10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', borderRadius: '6px', cursor: 'pointer' }}
+                        title="Delete User Account"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
