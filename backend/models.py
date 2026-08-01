@@ -29,6 +29,8 @@ class Profile(Base):
     linkedin_url = Column(String, nullable=True)
     github_url = Column(String, nullable=True)
 
+from datetime import datetime
+
 class History(Base):
     __tablename__ = "history"
 
@@ -40,6 +42,7 @@ class History(Base):
     goal = Column(String)
     response = Column(Text)
     resources = Column(Text, nullable=True) # Stored as JSON string
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class Task(Base):
     __tablename__ = "tasks"

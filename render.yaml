@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: careercrafter-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        value: careercrafter.app@gmail.com
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        value: careercrafter.app@gmail.com

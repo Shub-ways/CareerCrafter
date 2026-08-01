@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 load_dotenv(override=True)
+load_dotenv("backend/.env", override=True)
+load_dotenv("../.env", override=True)
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,10 +12,7 @@ import models, database
 app = FastAPI(title="CareerCrafter API")
 
 # Setup CORS
-allowed_origins = ["http://localhost:5173", "http://localhost:3000"]
-env_origins = os.getenv("CORS_ORIGINS")
-if env_origins:
-    allowed_origins.extend([origin.strip() for origin in env_origins.split(",") if origin.strip()])
+allowed_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,

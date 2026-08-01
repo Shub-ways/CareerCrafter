@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
-import { Clock, History as HistoryIcon, Target, BookOpen, Download, ExternalLink, PlayCircle, Trash2 } from 'lucide-react';
+import { Clock, History as HistoryIcon, Target, BookOpen, Download, ExternalLink, PlayCircle, Trash2, FileText } from 'lucide-react';
 import './History.css';
 
 const History = () => {
@@ -36,7 +36,7 @@ const History = () => {
     if (!element) return;
     const opt = {
       margin:       10,
-      filename:     `Career_Roadmap_History_${id}.pdf`,
+      filename:     `Career_History_${id}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -56,13 +56,32 @@ const History = () => {
   };
 
   const parseResources = (resStr) => {
-    if (!resStr) return { resources: [], tasks: [] };
+    if (!resStr) return { resources: [], tasks: [], isResumeReview: false };
     try {
       const parsed = JSON.parse(resStr);
-      if (Array.isArray(parsed)) return { resources: parsed, tasks: [] };
-      return { resources: parsed.resources || [], tasks: parsed.tasks || [] };
+      if (parsed.type === 'resume_review') {
+        return { resources: [], tasks: [], isResumeReview: true, filename: parsed.filename, job_description: parsed.job_description };
+      }
+      if (Array.isArray(parsed)) return { resources: parsed, tasks: [], isResumeReview: false };
+      return { resources: parsed.resources || [], tasks: parsed.tasks || [], isResumeReview: false };
     } catch { 
-      return { resources: [], tasks: [] }; 
+      return { resources: [], tasks: [], isResumeReview: false }; 
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+      return d.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return null;
     }
   };
 
@@ -70,7 +89,7 @@ const History = () => {
     <div className="history-container">
       <div className="page-header">
         <h1><span className="text-gradient">Your History</span> <HistoryIcon size={28} className="inline-icon text-yellow-500" /></h1>
-        <p>Review your past career roadmaps and track how your goals have evolved over time.</p>
+        <p>Review your past career roadmaps, ATS resume reviews, and track your progress over time.</p>
       </div>
 
       {loading ? (
@@ -79,37 +98,58 @@ const History = () => {
         <div className="glass-panel empty-state">
           <Clock size={48} className="empty-icon" />
           <h3>No history found</h3>
-          <p>Head over to the AI Career Advisor to generate your first roadmap.</p>
+          <p>Head over to the AI Career Advisor or Resume Reviewer to get started.</p>
         </div>
       ) : (
         <div className="timeline">
-          {history.map((entry, idx) => (
-            <div key={entry.id} className="timeline-item animate-fade-in" style={{animationDelay: `${idx * 0.1}s`}}>
-              <div className="timeline-marker"></div>
-              
-              <div className={`glass-panel timeline-content ${expandedId === entry.id ? 'expanded' : ''}`}>
-                <div className="timeline-header" onClick={() => toggleExpand(entry.id)}>
-                  <div className="header-left">
-                    <h3>Goal: {entry.goal || 'General Career Advice'}</h3>
-                    <div className="context-badges">
-                      <span className="badge"><BookOpen size={14} /> {entry.education}</span>
-                      <span className="badge"><Target size={14} /> {entry.skills.split(',').length} Skills</span>
+          {history.map((entry, idx) => {
+            const parsedMeta = parseResources(entry.resources);
+            const isReview = parsedMeta.isResumeReview || entry.interests === 'ATS Resume Optimization';
+            const formattedTime = formatDate(entry.created_at);
+
+            return (
+              <div key={entry.id} className="timeline-item animate-fade-in" style={{animationDelay: `${idx * 0.1}s`}}>
+                <div className="timeline-marker" style={isReview ? { borderColor: '#818cf8' } : {}}></div>
+                
+                <div className={`glass-panel timeline-content ${expandedId === entry.id ? 'expanded' : ''}`}>
+                  <div className="timeline-header" onClick={() => toggleExpand(entry.id)}>
+                    <div className="header-left">
+                      <h3>{entry.goal || 'Career Analysis'}</h3>
+                      <div className="context-badges">
+                        {formattedTime && (
+                          <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}>
+                            <Clock size={14} /> {formattedTime}
+                          </span>
+                        )}
+                        {isReview ? (
+                          <>
+                            <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.4)' }}>
+                              <FileText size={14} /> Resume Review
+                            </span>
+                            <span className="badge"><Target size={14} /> {entry.skills || 'PDF Document'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="badge"><BookOpen size={14} /> {entry.education}</span>
+                            <span className="badge"><Target size={14} /> {entry.skills ? entry.skills.split(',').length : 0} Skills</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button 
+                        onClick={(e) => handleDelete(e, entry.id)} 
+                        className="btn-outline" 
+                        style={{ border: 'none', color: 'red', padding: '5px' }}
+                        title="Delete this history"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                      <button className="expand-btn">
+                        {expandedId === entry.id ? 'Collapse' : (isReview ? 'View ATS Analysis' : 'View Full Roadmap')}
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <button 
-                      onClick={(e) => handleDelete(e, entry.id)} 
-                      className="btn-outline" 
-                      style={{ border: 'none', color: 'red', padding: '5px' }}
-                      title="Delete this history"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                    <button className="expand-btn">
-                      {expandedId === entry.id ? 'Collapse' : 'View Full Roadmap'}
-                    </button>
-                  </div>
-                </div>
                 
                 {expandedId === entry.id && (
                   <div className="timeline-body">
@@ -177,7 +217,8 @@ const History = () => {
                 )}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

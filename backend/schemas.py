@@ -76,10 +76,13 @@ class HistoryBase(BaseModel):
 class HistoryCreate(HistoryBase):
     pass
 
+from datetime import datetime
+
 class HistoryResponse(HistoryBase):
     id: int
     username: str
     response: str
     resources: Optional[str] = None
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True

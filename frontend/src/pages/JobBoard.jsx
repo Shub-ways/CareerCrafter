@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Briefcase, MapPin, DollarSign, Search, Loader2, ExternalLink, CheckCircle } from 'lucide-react';
+import { Briefcase, MapPin, DollarSign, Search, Loader2, ExternalLink, CheckCircle, Globe } from 'lucide-react';
 import './JobBoard.css';
 
 const JobBoard = () => {
@@ -138,9 +138,42 @@ const JobBoard = () => {
                   </div>
                 </div>
                 
-                <a href={job.apply_url} onClick={(e) => { e.preventDefault(); alert("This is a simulated job posting! In a real app, this would take you to the application page."); }} className="btn-primary apply-btn">
-                  Apply Now <ExternalLink size={16} />
-                </a>
+                <div className="apply-actions">
+                  <a 
+                    href={`https://www.google.com/search?q=${encodeURIComponent(`${job.title} ${job.company} jobs`)}&ibp=htl;jobs`}
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn-primary apply-btn-main"
+                  >
+                    <Globe size={16} /> Google Jobs Portal <ExternalLink size={14} />
+                  </a>
+                  <div className="apply-secondary-group">
+                    <a 
+                      href={`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${job.title} ${job.company}`)}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="btn-secondary apply-btn-sub"
+                    >
+                      LinkedIn
+                    </a>
+                    <a 
+                      href={`https://www.indeed.com/jobs?q=${encodeURIComponent(`${job.title} ${job.company}`)}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="btn-secondary apply-btn-sub"
+                    >
+                      Indeed
+                    </a>
+                    <a 
+                      href={`https://www.google.com/search?q=${encodeURIComponent(`${job.company} official careers ${job.title}`)}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="btn-secondary apply-btn-sub"
+                    >
+                      Company Site
+                    </a>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

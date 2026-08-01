@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import './CareerAdvisor.css'; // We can reuse the CareerAdvisor CSS for layout
 
 const ResumeReviewer = () => {
-  const { api } = useAuth();
+  const { user, api } = useAuth();
   const [resumeFile, setResumeFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
   const [review, setReview] = useState('');
@@ -40,7 +40,8 @@ const ResumeReviewer = () => {
       formData.append('resume_file', resumeFile);
       formData.append('job_description', jobDescription);
 
-      const response = await api.post('/ai/resume-review', formData, {
+      const targetUrl = user?.username ? `/ai/resume-review/${encodeURIComponent(user.username)}` : '/ai/resume-review';
+      const response = await api.post(targetUrl, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

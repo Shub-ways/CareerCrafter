@@ -1,23 +1,65 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mic, Send, Bot, User as UserIcon, XCircle, Volume2, VolumeX, MicOff } from 'lucide-react';
+import { Mic, Send, Bot, User as UserIcon, XCircle, Volume2, VolumeX, MicOff, FileText, UserCheck, Upload, Award, CheckCircle2, AlertCircle, Download, RefreshCw, Loader2, Video, VideoOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import html2pdf from 'html2pdf.js';
 import './MockInterview.css';
 
 const MockInterview = () => {
-  const { api } = useAuth();
+  const { user, api } = useAuth();
   const [jobTitle, setJobTitle] = useState('');
+  const [resumeText, setResumeText] = useState('');
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const [isInterviewStarted, setIsInterviewStarted] = useState(false);
+  const [evaluation, setEvaluation] = useState(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [showScorecardModal, setShowScorecardModal] = useState(false);
   const [history, setHistory] = useState([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTTSMuted, setIsTTSMuted] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+
   const messagesEndRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   
   // Speech Recognition Setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = useRef(SpeechRecognition ? new SpeechRecognition() : null);
+  const isInterviewStartedRef = useRef(isInterviewStarted);
+  const isAISpeakingRef = useRef(false);
+
+  useEffect(() => {
+    isInterviewStartedRef.current = isInterviewStarted;
+    if (isInterviewStarted) {
+      startContinuousListening();
+    } else {
+      stopContinuousListening();
+    }
+  }, [isInterviewStarted]);
+
+  const startContinuousListening = () => {
+    if (!recognition.current || !isInterviewStartedRef.current || isAISpeakingRef.current) return;
+    try {
+      recognition.current.start();
+      setIsRecording(true);
+    } catch (e) {
+      // Recognition already running or starting
+    }
+  };
+
+  const stopContinuousListening = () => {
+    if (recognition.current) {
+      try {
+        recognition.current.stop();
+      } catch (e) {}
+    }
+    setIsRecording(false);
+  };
 
   useEffect(() => {
     if (recognition.current) {
@@ -26,13 +68,10 @@ const MockInterview = () => {
       
       recognition.current.onresult = (event) => {
         let finalTranscript = '';
-        let interimTranscript = '';
         
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
           }
         }
         
@@ -47,43 +86,35 @@ const MockInterview = () => {
       };
       
       recognition.current.onend = () => {
-         setIsRecording(false);
+        setIsRecording(false);
+        // Auto-restart if interview is active and AI is not speaking
+        if (isInterviewStartedRef.current && !isAISpeakingRef.current) {
+          setTimeout(() => {
+            startContinuousListening();
+          }, 300);
+        }
       };
     }
   }, []);
 
-  const toggleRecording = () => {
-    if (!recognition.current) {
-      alert("Your browser does not support Speech Recognition. Please use Chrome or Edge.");
+  const speakText = (text) => {
+    if (!window.speechSynthesis) return;
+    
+    stopContinuousListening();
+    isAISpeakingRef.current = true;
+    window.speechSynthesis.cancel();
+    
+    if (isTTSMuted) {
+      isAISpeakingRef.current = false;
+      startContinuousListening();
       return;
     }
     
-    if (isRecording) {
-      recognition.current.stop();
-      setIsRecording(false);
-    } else {
-      // Clear current message if starting fresh recording
-      if (!currentMessage) {
-        setCurrentMessage('');
-      }
-      recognition.current.start();
-      setIsRecording(true);
-    }
-  };
-
-  const speakText = (text) => {
-    if (isTTSMuted || !window.speechSynthesis) return;
-    
-    window.speechSynthesis.cancel(); // Stop any current speech
-    
-    // Strip markdown for speech
     const cleanText = text.replace(/[*#_`]/g, '');
-    
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
     
-    // Try to find a good English voice
     const voices = window.speechSynthesis.getVoices();
     const englishVoice = voices.find(voice => voice.lang.startsWith('en-') && voice.name.includes('Female')) || 
                          voices.find(voice => voice.lang.startsWith('en-'));
@@ -91,6 +122,16 @@ const MockInterview = () => {
        utterance.voice = englishVoice;
     }
     
+    utterance.onend = () => {
+      isAISpeakingRef.current = false;
+      startContinuousListening();
+    };
+
+    utterance.onerror = () => {
+      isAISpeakingRef.current = false;
+      startContinuousListening();
+    };
+
     window.speechSynthesis.speak(utterance);
   };
 
@@ -102,6 +143,44 @@ const MockInterview = () => {
         };
     }
   }, []);
+
+  const loadProfileData = async () => {
+    if (!user) return;
+    setLoadingProfile(true);
+    try {
+      const res = await api.get(`/profiles/${user.username}`);
+      const p = res.data;
+      const formatted = `Candidate Name: ${p.full_name || ''}\nEducation: ${p.education || ''}\nSkills: ${p.skills ? p.skills.join(', ') : ''}\nInterests: ${p.interests ? p.interests.join(', ') : ''}`;
+      setResumeText(formatted);
+      setUploadedFileName('Loaded from Profile');
+    } catch (err) {
+      console.error("Error loading profile data:", err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('resume_file', file);
+
+    setUploadingResume(true);
+    try {
+      const res = await api.post('/ai/parse-resume', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setResumeText(res.data.resume_text);
+      setUploadedFileName(file.name);
+    } catch (err) {
+      console.error("Error parsing resume file:", err);
+      alert("Failed to parse resume. Please make sure to upload a valid text PDF or TXT file.");
+    } finally {
+      setUploadingResume(false);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -143,6 +222,7 @@ const MockInterview = () => {
     try {
       const response = await api.post('/ai/mock-interview', {
         job_title: jobTitle,
+        resume_text: resumeText,
         history: currentHistory,
         message: messageText
       });
@@ -168,12 +248,89 @@ const MockInterview = () => {
     }
   };
 
+  const handleFinishAndEvaluate = async () => {
+    if (history.length < 2) {
+      alert("Please complete at least one Q&A response with the AI before requesting feedback.");
+      return;
+    }
+    if (recognition.current && isRecording) recognition.current.stop();
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setIsRecording(false);
+    setIsEvaluating(true);
+
+    try {
+      const res = await api.post('/ai/mock-interview/evaluate', {
+        job_title: jobTitle,
+        resume_text: resumeText,
+        history: history
+      });
+      setEvaluation(res.data.evaluation);
+      setShowScorecardModal(true);
+    } catch (err) {
+      console.error("Error evaluating interview:", err);
+      alert("Failed to evaluate interview performance. Please try again.");
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  const handleDownloadScorecardPDF = () => {
+    const element = document.getElementById('scorecard-report-content');
+    if (!element) return;
+    const opt = {
+      margin:       10,
+      filename:     `Interview_Scorecard_${jobTitle.replace(/\s+/g, '_')}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().from(element).set(opt).save();
+  };
+
+  const toggleCamera = async () => {
+    if (isVideoEnabled) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) videoRef.current.srcObject = null;
+      setIsVideoEnabled(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+        streamRef.current = stream;
+        setIsVideoEnabled(true);
+        setTimeout(() => {
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        }, 150);
+      } catch (err) {
+        console.error("Camera access error:", err);
+        alert("Could not access webcam. Please check your browser permissions.");
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const endInterview = () => {
     if (window.confirm('Are you sure you want to end this interview?')) {
       if (recognition.current && isRecording) recognition.current.stop();
       if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      setIsVideoEnabled(false);
       setIsInterviewStarted(false);
       setIsRecording(false);
+      setShowScorecardModal(false);
+      setEvaluation(null);
       setHistory([]);
       setJobTitle('');
     }
@@ -194,20 +351,57 @@ const MockInterview = () => {
             Enter the exact job title you are applying for, and our AI will conduct a realistic technical and behavioral interview with you.
           </p>
           
-          <form onSubmit={startInterview}>
+          <form onSubmit={startInterview} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div className="input-group" style={{ textAlign: 'left' }}>
-              <label>Target Job Title</label>
+              <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>Target Job Role *</label>
               <input 
                 type="text" 
                 className="input-glass" 
                 value={jobTitle}
                 onChange={e => setJobTitle(e.target.value)}
-                placeholder="e.g. Senior Frontend Developer"
+                placeholder="e.g. Data Analyst, Full Stack Developer, ML Engineer"
                 required
               />
             </div>
-            <button type="submit" className="btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
-              <Mic size={18} /> Start Interview
+
+            <div className="input-group" style={{ textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <label style={{ fontWeight: 600 }}>Upload Resume / Experience</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <label className="btn-secondary" style={{ fontSize: '0.8rem', padding: '0.38rem 0.7rem', display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                    <Upload size={14} /> {uploadingResume ? 'Extracting...' : 'Upload PDF / TXT'}
+                    <input type="file" accept=".pdf,.txt" hidden onChange={handleFileUpload} disabled={uploadingResume} />
+                  </label>
+                  <button 
+                    type="button" 
+                    onClick={loadProfileData} 
+                    disabled={loadingProfile}
+                    className="btn-secondary" 
+                    style={{ fontSize: '0.8rem', padding: '0.38rem 0.7rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    <UserCheck size={14} /> {loadingProfile ? 'Loading...' : 'Autofill Profile'}
+                  </button>
+                </div>
+              </div>
+
+              {uploadedFileName && (
+                <div style={{ fontSize: '0.85rem', color: '#4ade80', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={14} /> Attached: {uploadedFileName}
+                </div>
+              )}
+
+              <textarea 
+                className="input-glass" 
+                rows={4}
+                value={resumeText}
+                onChange={e => setResumeText(e.target.value)}
+                placeholder="Upload your resume PDF above or preview/edit your extracted background & skills here..."
+                style={{ resize: 'vertical', fontFamily: 'inherit' }}
+              />
+            </div>
+
+            <button type="submit" className="btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <Mic size={18} /> Start AI Mock Interview
             </button>
           </form>
         </div>
@@ -217,7 +411,16 @@ const MockInterview = () => {
             <div>
               <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Interviewing for: <span className="text-gradient">{jobTitle}</span></h3>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button 
+                className={`btn-icon-small ${isVideoEnabled ? 'active' : ''}`} 
+                onClick={toggleCamera}
+                title={isVideoEnabled ? "Turn Off Webcam" : "Turn On Webcam"}
+                style={isVideoEnabled ? { background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', borderColor: '#22c55e' } : {}}
+              >
+                {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
+              </button>
+
               <button 
                 className={`btn-icon-small ${!isTTSMuted ? 'active' : ''}`} 
                 onClick={() => {
@@ -229,11 +432,63 @@ const MockInterview = () => {
                 {isTTSMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
               </button>
               
+              <button 
+                onClick={handleFinishAndEvaluate} 
+                disabled={isEvaluating}
+                className="btn-primary" 
+                style={{ padding: '6px 14px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }}
+              >
+                {isEvaluating ? <Loader2 size={16} className="animate-spin" /> : <Award size={16} />}
+                {isEvaluating ? 'Evaluating...' : 'Get Scorecard'}
+              </button>
+
               <button onClick={endInterview} className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <XCircle size={16} /> End Interview
+                <XCircle size={16} /> Exit
               </button>
             </div>
           </div>
+
+          {isVideoEnabled && (
+            <div className="webcam-preview-box animate-fade-in" style={{
+              position: 'relative',
+              width: '100%',
+              maxHeight: '220px',
+              backgroundColor: '#000',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              marginBottom: '1rem',
+              border: '2px solid var(--accent-primary)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} 
+              />
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                left: '10px',
+                background: 'rgba(0, 0, 0, 0.65)',
+                backdropFilter: 'blur(4px)',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                color: '#4ade80',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: '600'
+              }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }}></span> LIVE CAMERA
+              </div>
+            </div>
+          )}
 
           <div className="chat-messages">
             {history.map((msg, index) => (
@@ -272,24 +527,34 @@ const MockInterview = () => {
 
           <div className="chat-input-area">
             <form onSubmit={handleSendMessage} className="chat-input-form">
-              <button 
-                type="button" 
-                className={`send-btn btn-record ${isRecording ? 'recording' : ''}`}
-                onClick={toggleRecording}
-                title="Hold to speak"
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  background: isRecording ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                  color: isRecording ? '#4ade80' : 'var(--text-secondary)',
+                  border: `1px solid ${isRecording ? 'rgba(34, 197, 94, 0.4)' : 'var(--border-glass)'}`,
+                  whiteSpace: 'nowrap'
+                }}
+                title={isRecording ? "Hands-free mode active: speak freely" : "Mic paused while AI is responding"}
               >
-                {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-              </button>
+                <Mic size={16} color={isRecording ? "#22c55e" : "currentColor"} />
+                {isRecording ? "Listening Live..." : "Mic Paused"}
+              </div>
 
               <textarea
                 className="chat-textarea"
-                placeholder={isRecording ? "Listening..." : "Type your answer here... (Press Enter to send)"}
+                placeholder={isRecording ? "Speak freely or type your answer here... (Press Enter to send)" : "Type your answer here..."}
                 value={currentMessage}
                 onChange={e => setCurrentMessage(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if (isRecording) toggleRecording();
                     handleSendMessage(e);
                   }
                 }}
@@ -299,6 +564,127 @@ const MockInterview = () => {
                 <Send size={18} />
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showScorecardModal && evaluation && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '1.5rem'
+        }}>
+          <div className="glass-panel animate-fade-in" style={{
+            maxWidth: '750px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            borderRadius: '16px',
+            padding: '2rem',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            border: '1px solid var(--border-glass)'
+          }}>
+            <div id="scorecard-report-content" style={{ padding: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Award size={24} className="text-yellow-400" /> Interview Performance Scorecard
+                  </h2>
+                  <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                    Candidate Evaluation for <strong>{jobTitle}</strong>
+                  </p>
+                </div>
+                <div style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem',
+                  background: evaluation.overall_score >= 80 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                  color: evaluation.overall_score >= 80 ? '#4ade80' : '#facc15',
+                  border: `1px solid ${evaluation.overall_score >= 80 ? '#22c55e' : '#eab308'}`
+                }}>
+                  {evaluation.verdict || 'Evaluation Complete'}
+                </div>
+              </div>
+
+              {/* Score Meters */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-glass)' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#818cf8' }}>{evaluation.overall_score}/100</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Overall Score</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-glass)' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#60a5fa' }}>{evaluation.technical_score}/100</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Technical Depth</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-glass)' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#c084fc' }}>{evaluation.communication_score}/100</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Communication</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-glass)' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f472b6' }}>{evaluation.problem_solving_score}/100</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Problem Solving</div>
+                </div>
+              </div>
+
+              {/* Strengths & Improvements */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                <div style={{ background: 'rgba(34, 197, 94, 0.05)', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.95rem' }}>
+                    <CheckCircle2 size={16} /> Key Strengths
+                  </h4>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem', color: 'var(--text-primary)', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {evaluation.strengths?.map((item, idx) => <li key={idx}>{item}</li>)}
+                  </ul>
+                </div>
+
+                <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.95rem' }}>
+                    <AlertCircle size={16} /> Areas for Improvement
+                  </h4>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem', color: 'var(--text-primary)', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {evaluation.improvements?.map((item, idx) => <li key={idx}>{item}</li>)}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Summary */}
+              {evaluation.summary && (
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-glass)', marginBottom: '1.5rem' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>📝 Executive Summary Feedback</h4>
+                  <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {evaluation.summary}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-glass)' }}>
+              <button 
+                onClick={handleDownloadScorecardPDF} 
+                className="btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              >
+                <Download size={16} /> Export PDF Report
+              </button>
+              <button 
+                onClick={() => setShowScorecardModal(false)} 
+                className="btn-primary"
+                style={{ fontSize: '0.85rem' }}
+              >
+                Back to Session
+              </button>
+            </div>
           </div>
         </div>
       )}

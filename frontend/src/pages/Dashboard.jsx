@@ -333,6 +333,45 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Unlocked Badges Showcase */}
+            {(() => {
+              let badgeList = [];
+              try {
+                badgeList = typeof profile.badges === 'string' ? JSON.parse(profile.badges) : (profile.badges || []);
+              } catch (e) {
+                badgeList = [];
+              }
+              return (
+                <div className="badges-section" style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+                  <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Award size={18} className="text-yellow-400" /> Unlocked Badges ({badgeList.length})
+                  </h4>
+                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    {badgeList.length > 0 ? (
+                      badgeList.map((badge, idx) => (
+                        <div key={idx} style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '0.82rem',
+                          fontWeight: '600',
+                          background: 'rgba(234, 179, 8, 0.12)',
+                          color: '#facc15',
+                          border: '1px solid rgba(234, 179, 8, 0.3)'
+                        }} title={`Earned on ${badge.earned_at || 'Recently'}`}>
+                          <span>{badge.icon || '🏆'}</span> {badge.title}
+                        </div>
+                      ))
+                    ) : (
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Complete ATS reviews & mock interviews to earn badges!</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="task-checklist">
               <h4 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Your Action Items</h4>
               <div style={{ height: '180px', display: 'flex', flexDirection: 'column' }}>
