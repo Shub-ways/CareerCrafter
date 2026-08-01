@@ -11,6 +11,32 @@ def send_email(
     reply_to: str = None, 
     cc_email: str = None
 ) -> bool:
+    # 0. Try Brevo (Sendinblue) API if configured (300 free emails/day to ANY recipient)
+    brevo_api_key = os.getenv("BREVO_API_KEY")
+    if brevo_api_key:
+        print(f"[Email Service] Sending email via Brevo API to: {to_email}")
+        try:
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": brevo_api_key.strip(),
+                "Content-Type": "application/json"
+            }
+            sender_email = os.getenv("BREVO_SENDER_EMAIL", "careercrafter.app@gmail.com")
+            payload = {
+                "sender": {"name": "CareerCrafter", "email": sender_email},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": body_html or f"<p>{body_text}</p>"
+            }
+            response = requests.post(url, json=payload, headers=headers, timeout=5.0)
+            if response.status_code in (200, 201):
+                print("[Email Service] Email sent successfully via Brevo API.")
+                return True
+            else:
+                print(f"[Email Service] Brevo API failed: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"[Email Service] Exception sending via Brevo: {e}")
+
     # 1. Try sending via Resend API if the API key is configured
     resend_api_key = os.getenv("RESEND_API_KEY")
     if resend_api_key:
