@@ -42,22 +42,22 @@
 <div align="center">
 
 ### 🛡️ Admin Control Panel & Registered Users Directory
-![Admin Control Panel](./screenshots/admin_dashboard.png)
+![Admin Control Panel](./screenshots/admin_dashboard.png?v=2)
 
 <br/>
 
 ### 🎙️ Continuous Hands-Free Mock Interviewer with PIP Webcam Mirror & Scorecard
-![Mock Interviewer](./screenshots/mock_interview.png)
+![Mock Interviewer](./screenshots/mock_interview.png?v=2)
 
 <br/>
 
 ### 🤝 Case-Insensitive Peer Matching Engine
-![Peer Matching](./screenshots/peer_matching.png)
+![Peer Matching](./screenshots/peer_matching.png?v=2)
 
 <br/>
 
 ### 🔑 Secure OTP Authentication & Password Management
-![Authentication](./screenshots/authentication.png)
+![Authentication](./screenshots/authentication.png?v=2)
 
 </div>
 
