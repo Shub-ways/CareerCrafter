@@ -93,7 +93,12 @@ const CareerAdvisor = () => {
       }
     } catch (error) {
       console.error('Error generating roadmap:', error);
-      setRoadmap("⚠️ Error connecting to Gemini AI. Please check the API key configuration.");
+      const detailMsg = error.response?.data?.detail;
+      if (detailMsg) {
+        setRoadmap(`⚠️ ${detailMsg}`);
+      } else {
+        setRoadmap("⚠️ Error connecting to Gemini AI. Please wait a moment and try again.");
+      }
     } finally {
       setLoading(false);
     }

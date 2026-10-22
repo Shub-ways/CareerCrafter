@@ -31,7 +31,8 @@ def generate_content_with_fallback(prompt, generation_config=None):
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY (or GOOGLE_API_KEY) is not configured in .env file")
     genai.configure(api_key=key)
     
-    candidate_models = ["gemini-3.8-flash", "gemini-3.8-pro", "gemini-flash-latest", "gemini-pro-latest"]
+    # On Free Tier, only flash models are supported. Pro models have limit: 0.
+    candidate_models = ["gemini-3.8-flash", "gemini-flash-latest"]
     last_error = None
     
     for m_name in candidate_models:
@@ -47,26 +48,31 @@ def generate_content_with_fallback(prompt, generation_config=None):
             except Exception as err:
                 last_error = err
                 err_str = str(err)
-                print(f"Model {m_name} (attempt {attempt+1}) failed generate_content: {err}")
+                print(f"Model {m_name} (attempt {attempt+1}) failed: {err}")
                 
                 # Check for rate limit / retry-after delay
-                if "429" in err_str and "retry in" in err_str:
+                if "429" in err_str:
                     match = re.search(r"retry in (\d+(?:\.\d+)?)s", err_str)
-                    delay = float(match.group(1)) if match else 12.0
-                    delay = min(max(delay, 2.0), 14.0)
-                    print(f"Rate limit hit on {m_name}. Waiting {delay:.1f}s before retrying...")
-                    time.sleep(delay + 1.0)
-                    continue
-                elif "429" in err_str and attempt == 0:
-                    time.sleep(4.0)
-                    continue
+                    delay = float(match.group(1)) if match else 15.0
+                    
+                    if attempt == 0 and delay <= 20.0:
+                        print(f"Rate limit hit on {m_name}. Waiting {delay:.1f}s before retrying...")
+                        time.sleep(delay + 1.0)
+                        continue
+                    else:
+                        wait_sec = int(delay) if delay else 20
+                        raise HTTPException(
+                            status_code=429,
+                            detail=f"Gemini Free Tier cooldown active (5 req/min). Please wait {wait_sec} seconds and try again."
+                        )
+                # On non-429 errors (e.g. 404 or 503), try next model
                 break
             
     traceback.print_exc()
     if "429" in str(last_error):
         raise HTTPException(
             status_code=429,
-            detail="Google Gemini Free Tier rate limit reached (5 requests/min). Please wait 15 seconds and try again."
+            detail="Gemini Free Tier limit (5 req/min). Please wait 20 seconds and try again."
         )
     raise HTTPException(status_code=500, detail=f"Gemini AI Generation Error: {str(last_error)}")
 
@@ -343,7 +349,7 @@ def mock_interview(request: MockInterviewRequest, current_user: models.User = De
             raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
         genai.configure(api_key=key)
         
-        candidate_interview_models = ["gemini-3.8-flash", "gemini-3.8-pro", "gemini-flash-latest", "gemini-pro-latest"]
+        candidate_interview_models = ["gemini-3.8-flash", "gemini-flash-latest"]
         last_err = None
         response_text = None
         
