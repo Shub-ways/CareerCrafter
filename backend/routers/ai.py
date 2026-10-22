@@ -10,6 +10,8 @@ import io
 import traceback
 from typing import List
 from datetime import datetime
+import time
+import re
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -29,24 +31,43 @@ def generate_content_with_fallback(prompt, generation_config=None):
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY (or GOOGLE_API_KEY) is not configured in .env file")
     genai.configure(api_key=key)
     
-    candidate_models = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest"]
+    candidate_models = ["gemini-3.8-flash", "gemini-3.8-pro", "gemini-flash-latest", "gemini-pro-latest"]
     last_error = None
     
     for m_name in candidate_models:
-        try:
-            model = genai.GenerativeModel(m_name)
-            if generation_config:
-                res = model.generate_content(prompt, generation_config=generation_config)
-            else:
-                res = model.generate_content(prompt)
-            if res and res.text:
-                return res
-        except Exception as err:
-            last_error = err
-            print(f"Model {m_name} failed generate_content: {err}")
-            continue
+        for attempt in range(2):
+            try:
+                model = genai.GenerativeModel(m_name)
+                if generation_config:
+                    res = model.generate_content(prompt, generation_config=generation_config)
+                else:
+                    res = model.generate_content(prompt)
+                if res and res.text:
+                    return res
+            except Exception as err:
+                last_error = err
+                err_str = str(err)
+                print(f"Model {m_name} (attempt {attempt+1}) failed generate_content: {err}")
+                
+                # Check for rate limit / retry-after delay
+                if "429" in err_str and "retry in" in err_str:
+                    match = re.search(r"retry in (\d+(?:\.\d+)?)s", err_str)
+                    delay = float(match.group(1)) if match else 12.0
+                    delay = min(max(delay, 2.0), 14.0)
+                    print(f"Rate limit hit on {m_name}. Waiting {delay:.1f}s before retrying...")
+                    time.sleep(delay + 1.0)
+                    continue
+                elif "429" in err_str and attempt == 0:
+                    time.sleep(4.0)
+                    continue
+                break
             
     traceback.print_exc()
+    if "429" in str(last_error):
+        raise HTTPException(
+            status_code=429,
+            detail="Google Gemini Free Tier rate limit reached (5 requests/min). Please wait 15 seconds and try again."
+        )
     raise HTTPException(status_code=500, detail=f"Gemini AI Generation Error: {str(last_error)}")
 
 def award_points_and_badges(username: str, db: Session, points_to_add: int, badge_title: str, badge_icon: str):
@@ -322,7 +343,7 @@ def mock_interview(request: MockInterviewRequest, current_user: models.User = De
             raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
         genai.configure(api_key=key)
         
-        candidate_interview_models = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+        candidate_interview_models = ["gemini-3.8-flash", "gemini-3.8-pro", "gemini-flash-latest", "gemini-pro-latest"]
         last_err = None
         response_text = None
         
