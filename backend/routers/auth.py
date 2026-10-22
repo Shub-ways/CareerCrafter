@@ -34,8 +34,11 @@ def send_otp_email(to_email: str, otp: str, username: str = "User"):
 
 @router.post("/request-otp")
 def request_otp(request: schemas.OTPRequest, db: Session = Depends(database.get_db)):
-    db_user = db.query(models.User).filter(models.User.username == request.username).first()
-    db_email = db.query(models.User).filter(models.User.email == request.email).first()
+    req_username = request.username.strip()
+    req_email = request.email.strip().lower()
+
+    db_user = db.query(models.User).filter(models.User.username == req_username).first()
+    db_email = db.query(models.User).filter(models.User.email == req_email).first()
     
     if db_user and db_user.is_verified:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -45,14 +48,20 @@ def request_otp(request: schemas.OTPRequest, db: Session = Depends(database.get_
     otp = str(random.randint(100000, 999999))
     expiry = datetime.utcnow() + timedelta(minutes=10)
     
+    # If an unverified user already holds this email under a different username, remove stale row
+    if db_email and (not db_user or db_email.id != db_user.id):
+        db.delete(db_email)
+        db.commit()
+        db_email = None
+
     if db_user:
-        db_user.email = request.email
+        db_user.email = req_email
         db_user.otp_code = otp
         db_user.otp_expiry = expiry
     else:
         new_user = models.User(
-            username=request.username,
-            email=request.email,
+            username=req_username,
+            email=req_email,
             hashed_password="",
             is_verified=False,
             otp_code=otp,
@@ -62,41 +71,47 @@ def request_otp(request: schemas.OTPRequest, db: Session = Depends(database.get_
         
     db.commit()
     
-    send_otp_email(request.email, otp, request.username)
+    send_otp_email(req_email, otp, req_username)
     
     return {"message": "OTP sent to email"}
 
 @router.post("/verify-otp")
 def verify_otp(request: schemas.OTPVerify, db: Session = Depends(database.get_db)):
-    db_user = db.query(models.User).filter(models.User.username == request.username).first()
+    req_username = request.username.strip()
+    req_email = request.email.strip().lower()
+
+    db_user = db.query(models.User).filter(models.User.username == req_username).first()
     
     if not db_user or db_user.is_verified:
         raise HTTPException(status_code=400, detail="Invalid request")
         
-    if db_user.email != request.email:
+    if db_user.email.lower() != req_email:
         raise HTTPException(status_code=400, detail="Email mismatch")
         
-    if db_user.otp_code != request.otp:
+    if db_user.otp_code != request.otp.strip():
         raise HTTPException(status_code=400, detail="Invalid OTP")
         
-    if db_user.otp_expiry < datetime.utcnow():
+    if db_user.otp_expiry and db_user.otp_expiry < datetime.utcnow():
         raise HTTPException(status_code=400, detail="OTP expired")
         
     db_user.is_verified = True
     db_user.hashed_password = get_password_hash(request.password)
     db.commit()
     
-    new_profile = models.Profile(
-        username=db_user.username,
-        full_name=db_user.username,
-        age=18,
-        education="Undergraduate",
-        interests="",
-        skills="",
-        profile_pic=None
-    )
-    db.add(new_profile)
-    db.commit()
+    # Safe profile creation if not already present
+    existing_profile = db.query(models.Profile).filter(models.Profile.username == db_user.username).first()
+    if not existing_profile:
+        new_profile = models.Profile(
+            username=db_user.username,
+            full_name=db_user.username,
+            age=18,
+            education="Undergraduate",
+            interests="",
+            skills="",
+            profile_pic=None
+        )
+        db.add(new_profile)
+        db.commit()
     
     # Send Welcome Email upon successful registration & verification
     try:
@@ -120,7 +135,13 @@ def verify_otp(request: schemas.OTPVerify, db: Session = Depends(database.get_db
 
 @router.post("/login")
 def login(user: schemas.UserLogin, db: Session = Depends(database.get_db)):
-    db_user = db.query(models.User).filter(models.User.username == user.username).first()
+    req_identifier = user.username.strip()
+    
+    # Look up by username or email
+    db_user = db.query(models.User).filter(models.User.username == req_identifier).first()
+    if not db_user:
+        db_user = db.query(models.User).filter(models.User.email == req_identifier.lower()).first()
+
     if not db_user or not db_user.is_verified:
         raise HTTPException(status_code=400, detail="Invalid username or password")
     
@@ -136,9 +157,10 @@ def login(user: schemas.UserLogin, db: Session = Depends(database.get_db)):
 
 @router.post("/forgot-password")
 def forgot_password(request: schemas.ForgotPasswordRequest, db: Session = Depends(database.get_db)):
-    db_user = db.query(models.User).filter(models.User.email == request.email).first()
+    req_email = request.email.strip().lower()
+    db_user = db.query(models.User).filter(models.User.email == req_email).first()
     if not db_user or not db_user.is_verified:
-        # We return a generic message to prevent email enumeration
+        # Generic message to prevent email enumeration
         return {"message": "If that email is registered, an OTP has been sent."}
         
     otp = str(random.randint(100000, 999999))
@@ -148,24 +170,24 @@ def forgot_password(request: schemas.ForgotPasswordRequest, db: Session = Depend
     db_user.otp_expiry = expiry
     db.commit()
     
-    send_otp_email(request.email, otp)
+    send_otp_email(req_email, otp, db_user.username)
     return {"message": "If that email is registered, an OTP has been sent."}
 
 @router.post("/reset-password")
 def reset_password(request: schemas.ResetPasswordRequest, db: Session = Depends(database.get_db)):
-    db_user = db.query(models.User).filter(models.User.email == request.email).first()
+    req_email = request.email.strip().lower()
+    db_user = db.query(models.User).filter(models.User.email == req_email).first()
     
     if not db_user or not db_user.is_verified:
         raise HTTPException(status_code=400, detail="Invalid request")
         
-    if db_user.otp_code != request.otp:
+    if db_user.otp_code != request.otp.strip():
         raise HTTPException(status_code=400, detail="Invalid OTP")
         
-    if db_user.otp_expiry < datetime.utcnow():
+    if db_user.otp_expiry and db_user.otp_expiry < datetime.utcnow():
         raise HTTPException(status_code=400, detail="OTP expired")
         
     db_user.hashed_password = get_password_hash(request.new_password)
-    # Invalidate the OTP after use
     db_user.otp_code = None 
     db.commit()
     
