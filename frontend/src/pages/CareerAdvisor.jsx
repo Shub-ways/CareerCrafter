@@ -15,12 +15,21 @@ const CareerAdvisor = () => {
   const [resources, setResources] = useState([]);
   const [recommendedTasks, setRecommendedTasks] = useState([]);
   const [addedTasks, setAddedTasks] = useState([]);
+  const [cooldown, setCooldown] = useState(0);
   const contentRef = React.useRef(null);
 
   useEffect(() => {
     fetchProfile();
     fetchLatestHistory();
   }, []);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const interval = setInterval(() => {
+      setCooldown(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldown]);
 
   const fetchProfile = async () => {
     try {
@@ -94,7 +103,12 @@ const CareerAdvisor = () => {
     } catch (error) {
       console.error('Error generating roadmap:', error);
       const detailMsg = error.response?.data?.detail;
-      if (detailMsg) {
+      if (error.response?.status === 429) {
+        const match = detailMsg && detailMsg.match(/wait (\d+) seconds/i);
+        const waitSec = match ? parseInt(match[1], 10) : 45;
+        setCooldown(waitSec);
+        setRoadmap(`⏳ **Free Tier Rate Limit (5 requests/min)**\n\nPlease wait **${waitSec} seconds** before clicking again to let Google reset your quota window.`);
+      } else if (detailMsg) {
         setRoadmap(`⚠️ ${detailMsg}`);
       } else {
         setRoadmap("⚠️ Error connecting to Gemini AI. Please wait a moment and try again.");
@@ -179,10 +193,13 @@ const CareerAdvisor = () => {
             <button 
               type="submit" 
               className="btn-primary generate-btn"
-              disabled={loading || !profile}
+              disabled={loading || !profile || cooldown > 0}
+              style={cooldown > 0 ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
             >
               {loading ? (
                 <><Loader2 className="animate-spin" size={20} /> Analyzing...</>
+              ) : cooldown > 0 ? (
+                <>⏳ Cooldown: Wait {cooldown}s</>
               ) : (
                 <><Compass size={20} /> Generate Roadmap</>
               )}
