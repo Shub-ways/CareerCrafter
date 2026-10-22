@@ -29,7 +29,7 @@ def generate_content_with_fallback(prompt, generation_config=None):
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY (or GOOGLE_API_KEY) is not configured in .env file")
     genai.configure(api_key=key)
     
-    candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"]
+    candidate_models = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest"]
     last_error = None
     
     for m_name in candidate_models:
@@ -322,7 +322,9 @@ def mock_interview(request: MockInterviewRequest, current_user: models.User = De
             raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
         genai.configure(api_key=key)
         
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        candidate_interview_models = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+        last_err = None
+        response_text = None
         
         # Convert our history schema to Gemini's format
         gemini_history = []
@@ -342,8 +344,6 @@ def mock_interview(request: MockInterviewRequest, current_user: models.User = De
         5. Format your output in Markdown.
         """
         
-        chat = model.start_chat(history=gemini_history)
-        
         generation_config = {
             "temperature": 0.7,
             "top_p": 0.95,
@@ -355,10 +355,23 @@ def mock_interview(request: MockInterviewRequest, current_user: models.User = De
             prompt = system_instruction + "\n\nUser: " + request.message
         else:
             prompt = request.message
+
+        for m_name in candidate_interview_models:
+            try:
+                model = genai.GenerativeModel(m_name)
+                chat = model.start_chat(history=gemini_history)
+                response = chat.send_message(prompt, generation_config=generation_config)
+                if response and response.text:
+                    response_text = response.text
+                    break
+            except Exception as err:
+                last_err = err
+                print(f"Mock interview model {m_name} failed: {err}")
+                continue
+
+        if not response_text:
+            raise HTTPException(status_code=500, detail=f"Interview AI generation failed: {str(last_err)}")
             
-        response = chat.send_message(prompt, generation_config=generation_config)
-        response_text = response.text if response and response.text else "⚠️ No response generated."
-        
         return {"reply": response_text}
         
     except HTTPException:
